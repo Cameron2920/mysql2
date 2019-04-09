@@ -41,6 +41,8 @@ static VALUE sym_symbolize_keys, sym_as, sym_array, sym_database_timezone,
   sym_application_timezone, sym_local, sym_utc, sym_cast_booleans,
   sym_cache_rows, sym_cast, sym_stream, sym_name;
 
+const char * field_type_to_string(enum_field_types field_type);
+
 /* Mark any VALUEs that are only referenced in C, so the GC won't get them. */
 static void rb_mysql_result_mark(void * wrapper) {
   mysql2_result_wrapper * w = wrapper;
@@ -162,6 +164,10 @@ static VALUE rb_mysql_result_fetch_field(VALUE self, unsigned int idx, int symbo
       }
     }
     rb_ary_store(wrapper->fields, idx, rb_field);
+
+    if (wrapper->types != Qnil) {
+      rb_ary_store(wrapper->types, idx, rb_str_new_cstr(field_type_to_string(field->type)));
+    }
   }
 
   return rb_field;
@@ -703,6 +709,7 @@ static VALUE rb_mysql_result_fetch_fields(VALUE self) {
   if (wrapper->fields == Qnil) {
     wrapper->numberOfFields = mysql_num_fields(wrapper->result);
     wrapper->fields = rb_ary_new2(wrapper->numberOfFields);
+    wrapper->types = rb_ary_new2(wrapper->numberOfFields);
   }
 
   if ((my_ulonglong)RARRAY_LEN(wrapper->fields) != wrapper->numberOfFields) {
@@ -712,6 +719,61 @@ static VALUE rb_mysql_result_fetch_fields(VALUE self) {
   }
 
   return wrapper->fields;
+}
+
+static VALUE rb_mysql_result_fetch_types(VALUE self) {
+  GET_RESULT(self);
+  rb_mysql_result_fetch_fields(self);
+  return wrapper->types;
+}
+
+const char * field_type_to_string(enum_field_types field_type){
+    switch(field_type) {
+      case MYSQL_TYPE_NULL:
+        return "null";
+      case MYSQL_TYPE_TINY:
+        return "tinyint";
+      case MYSQL_TYPE_SHORT:
+        return "smallint";
+      case MYSQL_TYPE_YEAR:
+        return "year";
+      case MYSQL_TYPE_INT24:
+        return "mediumint";
+      case MYSQL_TYPE_LONG:
+        return "integer";
+      case MYSQL_TYPE_LONGLONG:
+        return "bigint";
+      case MYSQL_TYPE_FLOAT:
+        return "float";
+      case MYSQL_TYPE_DOUBLE:
+        return "double";
+      case MYSQL_TYPE_TIME:
+        return "time";
+      case MYSQL_TYPE_DATE:
+        return "date";
+      case MYSQL_TYPE_DATETIME:
+        return "datetime";
+      case MYSQL_TYPE_TIMESTAMP:
+        return "timestamp";
+      case MYSQL_TYPE_DECIMAL:
+      case MYSQL_TYPE_NEWDECIMAL:
+        return "decimal";
+      case MYSQL_TYPE_STRING:
+        return "char";
+      case MYSQL_TYPE_VAR_STRING:
+        return "varchar";
+      case MYSQL_TYPE_BLOB:
+        return "blob";
+      case MYSQL_TYPE_BIT:
+        return "bit";
+      case MYSQL_TYPE_SET:
+        return "set";
+      case MYSQL_TYPE_ENUM:
+        return "enum";
+      case MYSQL_TYPE_GEOMETRY:
+        return "spatial";
+    }
+    return "";
 }
 
 static VALUE rb_mysql_result_each_(VALUE self,
@@ -929,6 +991,7 @@ VALUE rb_mysql_result_to_obj(VALUE client, VALUE encoding, VALUE options, MYSQL_
   wrapper->resultFreed = 0;
   wrapper->result = r;
   wrapper->fields = Qnil;
+  wrapper->types = Qnil;
   wrapper->rows = Qnil;
   wrapper->encoding = encoding;
   wrapper->streamingComplete = 0;
@@ -966,6 +1029,7 @@ void init_mysql2_result() {
   cMysql2Result = rb_define_class_under(mMysql2, "Result", rb_cObject);
   rb_define_method(cMysql2Result, "each", rb_mysql_result_each, -1);
   rb_define_method(cMysql2Result, "fields", rb_mysql_result_fetch_fields, 0);
+  rb_define_method(cMysql2Result, "types", rb_mysql_result_fetch_types, 0);
   rb_define_method(cMysql2Result, "free", rb_mysql_result_free_, 0);
   rb_define_method(cMysql2Result, "count", rb_mysql_result_count, 0);
   rb_define_alias(cMysql2Result, "size", "count");

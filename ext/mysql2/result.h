@@ -5,6 +5,7 @@ void init_mysql2_result(void);
 VALUE rb_mysql_result_to_obj(VALUE client, VALUE encoding, VALUE options, MYSQL_RES *r, VALUE statement);
 
 typedef struct {
+  VALUE types;
   VALUE fields;
   VALUE rows;
   VALUE client;
