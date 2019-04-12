@@ -119,6 +119,19 @@ RSpec.describe Mysql2::Result do
     end
   end
 
+  context "#types" do
+    let(:test_result) { @client.query("SELECT * FROM mysql2_test ORDER BY id DESC LIMIT 1") }
+
+    it "method should exist" do
+      expect(test_result).to respond_to(:types)
+    end
+
+    it "should return an array of type names in proper order" do
+      result = @client.query "SELECT 'a', 'b', 1"
+      expect(result.types).to eql(%w[varchar varchar bigint])
+    end
+  end
+
   context "streaming" do
     it "should maintain a count while streaming" do
       result = @client.query('SELECT 1', stream: true, cache_rows: false)
